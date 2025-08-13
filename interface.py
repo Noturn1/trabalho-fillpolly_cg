@@ -67,12 +67,11 @@ class Interface:
         color = colorchooser.askcolor(title="Escolha a cor do vértice")[1]
         if color:
             self.vertex_color = color
-            print(self.vertex_color)
 
     # Botão para preencher o poligono com o FillPoly
     def FillPoly_button(self):
         fill_b = tk.Button(
-            self.button_position, text="🖌 Preencher Polígono",
+            self.button_position, text="🖌 Preencher Polígono (FillPoly)",
             command=self.FillPoly_algorithm, font=("Segoe UI", 12, "bold"),
             bg="#66cc66", fg="white", relief="flat", padx=10, pady=5
         )
