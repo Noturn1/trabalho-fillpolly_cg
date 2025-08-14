@@ -14,7 +14,8 @@ class Interface:
         self.root.configure(bg="#f0f0f0")
 
         self.lista_vertices = [] # Lista para armazenar os vérices
-        self.vertex_color = "black" # Cor para o vértice inicial ---------------------------------------------> talvez mudar depois
+        self.lista_cores = []    # Lista para armazenar as cores de cada vértice
+        self.vertex_color = "#000000" # Cor para o vértice inicial (preto)
 
         # Quadro branco onde serão exibidos os vértices e poligonos (Canva cental)
         self.canvas = tk.Canvas(root, width=1000, height=600, bg="white")
@@ -32,11 +33,24 @@ class Interface:
         # Captura de cliques
         self.canvas.bind("<Button-1>", self.canva_click)
 
+    # Método para converter cor HEXADECIMAL para RGB
+    def hex_to_rgb(self, hex_color):
+        hex_color = hex_color.lstrip("#")
+        return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
     # Método para armazenar o clique do usuário numa lista de vértices e desenhá-lo no Canvas
     def canva_click(self, event):
         x, y = event.x, event.y
+        rgb = self.hex_to_rgb(self.vertex_color)
+
         self.lista_vertices.append((x, y))
-        r = 3  # raio do ponto
+        self.lista_cores.append(rgb)
+
+        # Debug
+        print("Vértices:", self.lista_vertices)
+        print("Cores   :", self.lista_cores)
+        
+        r = 4  # raio do ponto
         self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=self.vertex_color, outline="black")
 
     # Botão para limpar a tela
