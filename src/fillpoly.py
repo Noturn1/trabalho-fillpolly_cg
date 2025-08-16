@@ -1,14 +1,14 @@
-import sys
+import math
 
 
 class Cor:
     """Representa cor RGB com valores de 0 a 255."""
 
-    def __init__(self, R=0, G=0, B=0):
-        self.R, self.G, self.B = R, G, B
+    def __init__(self, r=0, g=0, b=0):
+        self.r, self.g, self.b = r, g, b
 
     def __repr__(self):
-        return f"Cor: ({self.R},{self.G},{self.B})"
+        return f"Cor: ({self.r},{self.g},{self.b})"
 
 
 class Vertice:
@@ -19,30 +19,69 @@ class Vertice:
         self.cor = cor if cor else Cor()
 
     def __repr__(self):
-        return f"Vértice: ({self.X}, {self.Y}, {self.cor})"
+        return f"Vértice: ({self.x}, {self.y}, {self.cor})"
 
 
-def preenchimento_gourand(vertices):
+class Poligono:
+    """Classe para lidar com as informaçoes dos poligonos criados na interface"""
+
+    def __init__(self, lista_de_vertices, desenhar_arestas=True):
+        self.vertices = lista_de_vertices
+        self.desenhar_arestas = desenhar_arestas
+        self.selecionado = False
+        self.pixels_calculados = []  # Para armazenar resultado do algoritmo
+
+    # Converter os dados dos vértices e chamar Gourand
+    def calcular_preenchimento(self):
+        # Garantir que exista pelo menos 1 polígono
+        if self.pixels_calculados or len(self.vertices) < 3:
+            return
+
+        vertices_obj = []
+        for v_data in self.vertices:
+            x, y, r, g, b = v_data
+            cor_obj = Cor(r=r, g=g, b=b)
+            vertices_obj.append(Vertice(x=x, y=y, cor=cor_obj))
+
+        self.pixels_calculados = preenchimento_gourand(vertices_obj)
+
+    # Para verificar se um ponto (x,y) está dentro do polígono
+    def ponto_esta_dentro(self, x, y):
+        n = len(self.vertices)
+        dentro = False
+
+        p1x, p1y, _, _, _ = self.vertices[0]
+        for i in range(n + 1):
+            p2x, p2y, _, _, _ = self.vertices[i % n]
+            if y > min(p1y, p2y) and y <= max(p1y, p2y) and x <= max(p1x, p2x):
+                if p1y != p2y:
+                    x_intersecao = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                if p1x == p2x or x <= x_intersecao:
+                    dentro = not dentro
+            p1x, p1y = p2x, p2y
+        return dentro
+
+
+def preenchimento_gourand(vertices_obj):
     """
     Executa algoritmo de preenchimento de Scanline com
     sombreamento gourand.
     """
 
-    if not vertices:
-        return []
-
     pixels_para_desenhar = []
 
     # Aqui encontra os limites verticais do polígono
-    y_min = min(v.y for v in vertices)
-    y_max = max(v.y for v in vertices)
+    y_min = math.ceil(min(v.y for v in vertices_obj))
+    y_max = math.floor(max(v.y for v in vertices_obj))
 
     # Tabela de arestas (edge table) para armazenar interseçoes.
     tabela_arestas = {y: [] for y in range(y_min, y_max)}
 
-    for i in range(len(vertices)):
-        p1 = vertices[i]
-        p2 = vertices[(i + 1) % len(vertices)]  # Para garantir que as arestas fechem.
+    for i in range(len(vertices_obj)):
+        p1 = vertices_obj[i]
+        p2 = vertices_obj[
+            (i + 1) % len(vertices_obj)
+        ]  # Para garantir que as arestas fechem.
 
         # Para garantir que o p1 seja o vértice com menor Y.
         if p1.y > p2.y:
@@ -54,30 +93,32 @@ def preenchimento_gourand(vertices):
 
         # Calcula incrementos de x e para cara componente de cor
         delta_y = p2.y - p1.y
-        dx_dy = (p2.x - p1.y) / delta_y
 
-        dr_dy = (p2.r - p1.r) / delta_y
-        dg_dy = (p2.g - p1.g) / delta_y
-        db_dy = (p2.b - p1.b) / delta_y
+        if delta_y == 0:
+            continue
+
+        dx_dy = (p2.x - p1.x) / delta_y
+
+        dr_dy = (p2.cor.r - p1.cor.r) / delta_y
+        dg_dy = (p2.cor.g - p1.cor.g) / delta_y
+        db_dy = (p2.cor.b - p1.cor.b) / delta_y
 
         # Aqui inicializa os valores para interpolaçao
-        x_atual = p1.x
-        r_atual, g_atual, b_atual = p1.cor.r, p1.cor.r, p1.cor.b
+        x, r, g, b = p1.x, p1.cor.r, p1.cor.g, p1.cor.b
 
         # Itera sobre as scanlines que a aresta cruza
-        for y in range(p1.y, p2.y):
-            tabela_arestas[y].append(
-                {"x": x_atual, "cor": Cor(r_atual, g_atual, b_atual)}
-            )
+        for y_scan in range(p1.y, p2.y):
+            if y_scan in tabela_arestas:
+                tabela_arestas[y_scan].append({"x": x, "cor": Cor(r, g, b)})
 
-            x_atual += dx_dy
-            r_atual += dr_dy
-            g_atual += dg_dy
-            b_atual += db_dy
+            x += dx_dy
+            r += dr_dy
+            g += dg_dy
+            b += db_dy
 
     # Preencher o poligono linha por linha
-    for y in range(y_min, y_max):
-        intersecoes = tabela_arestas[y]
+    for y_scan in range(y_min, y_max - 1):
+        intersecoes = tabela_arestas.get(y_scan, [])
 
         # Ordena as interseçoes pela coordenada x
         intersecoes.sort(key=lambda i: i["x"])
@@ -98,14 +139,16 @@ def preenchimento_gourand(vertices):
             if delta_x == 0:
                 continue
 
-            dr_dx = (cor_fim.r - cor_incio.r) / delta_x
-            dg_dx = (cor_fim.g - cor_incio.g) / delta_x
-            db_dx = (cor_fim.b - cor_incio.b) / delta_x
+            dr_dx = (cor_fim.r - cor_inicio.r) / delta_x
+            dg_dx = (cor_fim.g - cor_inicio.g) / delta_x
+            db_dx = (cor_fim.b - cor_inicio.b) / delta_x
 
             r, g, b = cor_inicio.r, cor_inicio.g, cor_inicio.b
 
-            for x in range(x_inicio, x_fim + 1):
-                pixels_para_desenhar.append((x, y, Cor(round(r), round(b), round(b))))
+            for x_pixel in range(x_inicio, x_fim + 1):
+                pixels_para_desenhar.append(
+                    (x_pixel, y_scan, Cor(round(r), round(g), round(b)))
+                )
                 r += dr_dx
                 g += dg_dx
                 b += db_dx
